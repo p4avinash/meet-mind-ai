@@ -1,18 +1,23 @@
-import api from "@/lib/axios";
 import toast from "react-hot-toast";
 import { useEffect, useRef, useState } from "react";
+
+import { uploadMeeting } from "@/api/meeting.api";
 
 const useRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+
   const [audioURL, setAudioURL] = useState("");
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+
   const [seconds, setSeconds] = useState(0);
+
+  const [meetingId, setMeetingId] = useState("");
+  const [isUploaded, setIsUploaded] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  // timer
   useEffect(() => {
     let interval: number;
 
@@ -25,7 +30,6 @@ const useRecorder = () => {
     return () => clearInterval(interval);
   }, [isRecording]);
 
-  // format time
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -33,7 +37,6 @@ const useRecorder = () => {
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
 
-  // start recording
   const startRecording = async () => {
     if (isRecording) return;
 
@@ -58,39 +61,16 @@ const useRecorder = () => {
       setSeconds(0);
       setAudioURL("");
       setAudioBlob(null);
+
+      setMeetingId("");
+      setIsUploaded(false);
+
       setIsRecording(true);
-
-      console.log("🎙 Recording Started");
     } catch (error) {
       console.error(error);
     }
   };
 
-  // upload recording
-  const uploadRecording = async (audioBlob: Blob) => {
-    try {
-      const formData = new FormData();
-
-      formData.append("audio", audioBlob, "meeting.webm");
-      formData.append("duration", seconds.toString());
-
-      const { data } = await api.post("/meetings/upload", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      toast.success(data.message);
-
-      console.log(data);
-    } catch (error) {
-      console.error(error);
-
-      toast.error("Failed to upload recording");
-    }
-  };
-
-  // stop recording
   const stopRecording = () => {
     const recorder = mediaRecorderRef.current;
 
@@ -98,7 +78,7 @@ const useRecorder = () => {
 
     recorder.stop();
 
-    recorder.onstop = async () => {
+    recorder.onstop = () => {
       const blob = new Blob(audioChunksRef.current, {
         type: "audio/webm",
       });
@@ -107,23 +87,55 @@ const useRecorder = () => {
 
       setAudioBlob(blob);
       setAudioURL(url);
+
       setIsRecording(false);
-
-      await uploadRecording(blob);
-
-      console.log("🛑 Recording Stopped");
     };
 
     recorder.stream.getTracks().forEach((track) => track.stop());
   };
 
+  const uploadRecording = async () => {
+    if (!audioBlob) return;
+
+    try {
+      setIsUploading(true);
+
+      const formData = new FormData();
+
+      formData.append("audio", audioBlob, "meeting.webm");
+      formData.append("duration", seconds.toString());
+
+      const response = await uploadMeeting(formData);
+
+      setMeetingId(response.data._id);
+      setIsUploaded(true);
+
+      toast.success(response.message);
+    } catch (error) {
+      console.error(error);
+
+      toast.error("Failed to upload recording");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return {
     isRecording,
+    isUploading,
+    isUploaded,
+
     seconds,
+
     audioURL,
     audioBlob,
+
+    meetingId,
+
     startRecording,
     stopRecording,
+    uploadRecording,
+
     formatTime,
   };
 };
