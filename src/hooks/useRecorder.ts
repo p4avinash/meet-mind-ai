@@ -1,7 +1,10 @@
+import api from "@/lib/axios";
+import toast from "react-hot-toast";
 import { useEffect, useRef, useState } from "react";
 
 const useRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [audioURL, setAudioURL] = useState("");
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [seconds, setSeconds] = useState(0);
@@ -63,6 +66,30 @@ const useRecorder = () => {
     }
   };
 
+  // upload recording
+  const uploadRecording = async (audioBlob: Blob) => {
+    try {
+      const formData = new FormData();
+
+      formData.append("audio", audioBlob, "meeting.webm");
+      formData.append("duration", seconds.toString());
+
+      const { data } = await api.post("/meetings/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      toast.success(data.message);
+
+      console.log(data);
+    } catch (error) {
+      console.error(error);
+
+      toast.error("Failed to upload recording");
+    }
+  };
+
   // stop recording
   const stopRecording = () => {
     const recorder = mediaRecorderRef.current;
@@ -71,7 +98,7 @@ const useRecorder = () => {
 
     recorder.stop();
 
-    recorder.onstop = () => {
+    recorder.onstop = async () => {
       const blob = new Blob(audioChunksRef.current, {
         type: "audio/webm",
       });
@@ -81,6 +108,8 @@ const useRecorder = () => {
       setAudioBlob(blob);
       setAudioURL(url);
       setIsRecording(false);
+
+      await uploadRecording(blob);
 
       console.log("🛑 Recording Stopped");
     };
