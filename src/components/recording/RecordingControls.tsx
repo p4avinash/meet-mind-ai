@@ -1,68 +1,17 @@
-import { useRef, useState } from "react";
 import { HiMiniMicrophone } from "react-icons/hi2";
 
 import Button from "@/components/common/button/Button";
+import useRecorder from "@/hooks/useRecorder";
 
 const RecordingControls = () => {
-  const [isRecording, setIsRecording] = useState(false);
-  const [audioURL, setAudioURL] = useState("");
-
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-
-  const startRecording = async () => {
-    if (isRecording) return;
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-      });
-
-      const recorder = new MediaRecorder(stream);
-
-      mediaRecorderRef.current = recorder;
-      audioChunksRef.current = [];
-
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      recorder.start();
-
-      setIsRecording(true);
-
-      console.log("🎙 Recording Started");
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const stopRecording = () => {
-    const recorder = mediaRecorderRef.current;
-
-    if (!recorder) return;
-
-    recorder.stop();
-
-    recorder.onstop = () => {
-      const audioBlob = new Blob(audioChunksRef.current, {
-        type: "audio/webm",
-      });
-
-      const url = URL.createObjectURL(audioBlob);
-
-      setAudioURL(url);
-
-      setIsRecording(false);
-
-      console.log("🛑 Recording Stopped");
-      console.log(audioBlob);
-    };
-
-    recorder.stream.getTracks().forEach((track) => track.stop());
-  };
+  const {
+    isRecording,
+    seconds,
+    audioURL,
+    startRecording,
+    stopRecording,
+    formatTime,
+  } = useRecorder();
 
   return (
     <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900 p-10">
@@ -87,6 +36,16 @@ const RecordingControls = () => {
             ? "Recording is in progress."
             : "Click the button below to start recording your meeting."}
         </p>
+
+        {isRecording && (
+          <div className="mt-6 flex items-center gap-3">
+            <div className="h-3 w-3 animate-pulse rounded-full bg-red-500" />
+
+            <span className="font-mono text-2xl font-semibold text-white">
+              {formatTime(seconds)}
+            </span>
+          </div>
+        )}
 
         <Button
           onClick={isRecording ? stopRecording : startRecording}
