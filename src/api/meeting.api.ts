@@ -17,3 +17,15 @@ export const generateTranscript = async (meetingId: string) => {
 
   return data;
 };
+
+export const generateSummary = async (meetingId: string) => {
+  const { data } = await api.post(`/ai/${meetingId}/summary`);
+
+  return data;
+};
+
+export const generateActionItems = async (meetingId: string) => {
+  const { data } = await api.post(`/ai/${meetingId}/action-items`);
+
+  return data;
+};
