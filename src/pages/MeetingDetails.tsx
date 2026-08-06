@@ -11,6 +11,7 @@ import AudioCard from "@/components/meeting/AudioCard";
 import TranscriptCard from "@/components/meeting/TranscriptCard";
 import SummaryCard from "@/components/meeting/SummaryCard";
 import ActionItemsCard from "@/components/meeting/ActionItemsCard";
+import ProcessingStatus from "@/components/meeting/ProcessingStatus";
 
 import { getMeeting } from "@/api/meeting.api";
 
@@ -48,9 +49,21 @@ const MeetingDetails = () => {
     }
   };
 
+  const shouldPoll = meeting && meeting.status !== "completed";
+
   useEffect(() => {
     fetchMeeting();
   }, [id]);
+
+  useEffect(() => {
+    if (!shouldPoll) return;
+
+    const interval = setInterval(() => {
+      fetchMeeting();
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [shouldPoll]);
 
   const onGenerateSummary = async () => {
     if (!meeting?._id) return;
@@ -164,16 +177,14 @@ const MeetingDetails = () => {
         </div>
 
         <div className="mt-8 space-y-8">
+          <ProcessingStatus status={meeting.status} />
           <AudioCard audioUrl={meeting.audioUrl} />
-
           <TranscriptCard transcript={meeting.transcript} />
-
           <SummaryCard
             summary={meeting.summary}
             loading={isGeneratingSummary}
             onGenerate={onGenerateSummary}
           />
-
           <ActionItemsCard
             actionItems={meeting.actionItems || []}
             loading={isGeneratingActionItems}
