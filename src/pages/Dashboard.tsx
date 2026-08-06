@@ -5,12 +5,14 @@ import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import QuickActions from "@/components/dashboard/QuickActions";
 import MeetingHealth from "@/components/dashboard/MeetingHealth";
 import RecentMeetings from "@/components/dashboard/RecentMeetings";
+import SearchMeetings from "@/components/dashboard/SearchMeetings";
 
 import { getMeetings } from "@/api/meeting.api";
 
 const Dashboard = () => {
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   const fetchMeetings = async () => {
     try {
@@ -23,6 +25,10 @@ const Dashboard = () => {
       setLoading(false);
     }
   };
+
+  const filteredMeetings = meetings.filter((meeting: any) =>
+    meeting.title.toLowerCase().includes(search.toLowerCase()),
+  );
 
   useEffect(() => {
     fetchMeetings();
@@ -39,7 +45,9 @@ const Dashboard = () => {
 
         <MeetingHealth meetings={meetings} />
 
-        <RecentMeetings meetings={meetings} loading={loading} />
+        <SearchMeetings value={search} onChange={setSearch} />
+
+        <RecentMeetings meetings={filteredMeetings} loading={loading} />
       </div>
     </main>
   );

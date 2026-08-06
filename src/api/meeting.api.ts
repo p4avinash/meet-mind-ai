@@ -43,3 +43,9 @@ export const renameMeeting = async (meetingId: string, title: string) => {
 
   return data;
 };
+
+export const deleteMeeting = async (meetingId: string) => {
+  const { data } = await api.delete(`/meetings/${meetingId}`);
+
+  return data;
+};

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { HiPencil } from "react-icons/hi2";
+import { HiPencil, HiTrash } from "react-icons/hi2";
+import { useNavigate } from "react-router-dom";
 
 import Button from "@/components/common/button/Button";
 
@@ -21,7 +22,11 @@ const MeetingDetails = () => {
   const [meeting, setMeeting] = useState<any>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [title, setTitle] = useState("");
-  const { isRenaming, handleRenameMeeting } = useMeeting();
+
+  const navigate = useNavigate();
+
+  const { isRenaming, isDeleting, handleRenameMeeting, handleDeleteMeeting } =
+    useMeeting();
 
   const {
     handleGenerateSummary,
@@ -86,6 +91,22 @@ const MeetingDetails = () => {
     }
   };
 
+  const onDeleteMeeting = async () => {
+    if (!meeting?._id) return;
+
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this meeting?",
+    );
+
+    if (!confirmed) return;
+
+    const success = await handleDeleteMeeting(meeting._id);
+
+    if (success) {
+      navigate("/dashboard");
+    }
+  };
+
   if (!meeting) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#0B0F19] text-white">
@@ -97,37 +118,49 @@ const MeetingDetails = () => {
   return (
     <main className="min-h-screen bg-[#0B0F19] p-8">
       <div className="mx-auto max-w-5xl">
-        <div className="flex items-center gap-3">
-          {isEditingTitle ? (
-            <input
-              autoFocus
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onBlur={onRenameMeeting}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  onRenameMeeting();
-                }
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {isEditingTitle ? (
+              <input
+                autoFocus
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onBlur={onRenameMeeting}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    onRenameMeeting();
+                  }
 
-                if (e.key === "Escape") {
-                  setTitle(meeting.title);
-                  setIsEditingTitle(false);
-                }
-              }}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-3xl font-bold text-white outline-none focus:border-violet-500"
-            />
-          ) : (
-            <>
-              <h1 className="text-3xl font-bold text-white">{meeting.title}</h1>
+                  if (e.key === "Escape") {
+                    setTitle(meeting.title);
+                    setIsEditingTitle(false);
+                  }
+                }}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-3xl font-bold text-white outline-none focus:border-violet-500"
+              />
+            ) : (
+              <>
+                <h1 className="text-3xl font-bold text-white">
+                  {meeting.title}
+                </h1>
 
-              <button
-                onClick={() => setIsEditingTitle(true)}
-                className="text-zinc-400 transition hover:text-violet-400"
-              >
-                <HiPencil size={22} />
-              </button>
-            </>
-          )}
+                <button
+                  onClick={() => setIsEditingTitle(true)}
+                  className="text-zinc-400 transition hover:text-violet-400"
+                >
+                  <HiPencil size={22} />
+                </button>
+              </>
+            )}
+          </div>
+
+          <button
+            onClick={onDeleteMeeting}
+            disabled={isDeleting}
+            className="rounded-xl border border-red-500/30 p-3 text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
+          >
+            <HiTrash size={20} />
+          </button>
         </div>
 
         <div className="mt-8 space-y-8">

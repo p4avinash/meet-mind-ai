@@ -1,4 +1,6 @@
 import Button from "@/components/common/button/Button";
+import { HiClipboardDocument } from "react-icons/hi2";
+import copyToClipboard from "@/utils/copyToClipboard";
 
 interface ActionItemsCardProps {
   actionItems: string[];
@@ -13,7 +15,20 @@ const ActionItemsCard = ({
 }: ActionItemsCardProps) => {
   return (
     <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
-      <h2 className="text-xl font-semibold text-white">Action Items</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-white">Action Items</h2>
+
+        {!!actionItems?.length && (
+          <button
+            onClick={() =>
+              copyToClipboard(actionItems.join("\n"), "Action items copied!")
+            }
+            className="rounded-lg p-2 text-zinc-400 transition hover:bg-zinc-800 hover:text-violet-400"
+          >
+            <HiClipboardDocument size={22} />
+          </button>
+        )}
+      </div>
 
       {actionItems?.length ? (
         <ul className="mt-4 space-y-3">
