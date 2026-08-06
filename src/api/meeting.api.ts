@@ -29,3 +29,17 @@ export const generateActionItems = async (meetingId: string) => {
 
   return data;
 };
+
+export const getMeetings = async () => {
+  const { data } = await api.get("/meetings");
+
+  return data;
+};
+
+export const renameMeeting = async (meetingId: string, title: string) => {
+  const { data } = await api.patch(`/meetings/${meetingId}`, {
+    title,
+  });
+
+  return data;
+};

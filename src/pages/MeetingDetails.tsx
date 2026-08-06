@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { HiPencil } from "react-icons/hi2";
 
 import Button from "@/components/common/button/Button";
+
+import useMeeting from "@/hooks/useMeeting";
+
+import AudioCard from "@/components/meeting/AudioCard";
+import TranscriptCard from "@/components/meeting/TranscriptCard";
+import SummaryCard from "@/components/meeting/SummaryCard";
+import ActionItemsCard from "@/components/meeting/ActionItemsCard";
 
 import { getMeeting } from "@/api/meeting.api";
 
@@ -11,6 +19,9 @@ const MeetingDetails = () => {
   const { id } = useParams();
 
   const [meeting, setMeeting] = useState<any>(null);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [title, setTitle] = useState("");
+  const { isRenaming, handleRenameMeeting } = useMeeting();
 
   const {
     handleGenerateSummary,
@@ -25,7 +36,8 @@ const MeetingDetails = () => {
 
       const response = await getMeeting(id);
 
-      setMeeting(response.data);
+      setMeeting(response?.data);
+      setTitle(response?.data?.title);
     } catch (error) {
       console.error(error);
     }
@@ -55,6 +67,25 @@ const MeetingDetails = () => {
     }
   };
 
+  const onRenameMeeting = async () => {
+    if (!meeting?._id) return;
+
+    const trimmedTitle = title.trim();
+
+    if (!trimmedTitle) {
+      setTitle(meeting.title);
+      setIsEditingTitle(false);
+      return;
+    }
+
+    const success = await handleRenameMeeting(meeting._id, trimmedTitle);
+
+    if (success) {
+      await fetchMeeting();
+      setIsEditingTitle(false);
+    }
+  };
+
   if (!meeting) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#0B0F19] text-white">
@@ -66,81 +97,55 @@ const MeetingDetails = () => {
   return (
     <main className="min-h-screen bg-[#0B0F19] p-8">
       <div className="mx-auto max-w-5xl">
-        <h1 className="text-3xl font-bold text-white">{meeting.title}</h1>
+        <div className="flex items-center gap-3">
+          {isEditingTitle ? (
+            <input
+              autoFocus
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={onRenameMeeting}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  onRenameMeeting();
+                }
 
-        <audio controls src={meeting.audioUrl} className="mt-8 w-full" />
-
-        {/* Transcript */}
-
-        <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
-          <h2 className="text-xl font-semibold text-white">Transcript</h2>
-
-          <p className="mt-4 whitespace-pre-wrap leading-7 text-zinc-300">
-            {meeting.transcript || "Transcript not generated yet."}
-          </p>
-        </div>
-
-        {/* Summary */}
-
-        <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
-          <h2 className="text-xl font-semibold text-white">Summary</h2>
-
-          {meeting.summary ? (
-            <p className="mt-4 whitespace-pre-wrap leading-7 text-zinc-300">
-              {meeting.summary}
-            </p>
+                if (e.key === "Escape") {
+                  setTitle(meeting.title);
+                  setIsEditingTitle(false);
+                }
+              }}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-3xl font-bold text-white outline-none focus:border-violet-500"
+            />
           ) : (
             <>
-              <p className="mt-4 text-zinc-400">
-                Summary has not been generated yet.
-              </p>
+              <h1 className="text-3xl font-bold text-white">{meeting.title}</h1>
 
-              <Button
-                onClick={onGenerateSummary}
-                disabled={isGeneratingSummary}
-                className="mt-6"
+              <button
+                onClick={() => setIsEditingTitle(true)}
+                className="text-zinc-400 transition hover:text-violet-400"
               >
-                {isGeneratingSummary
-                  ? "Generating Summary..."
-                  : "Generate Summary"}
-              </Button>
+                <HiPencil size={22} />
+              </button>
             </>
           )}
         </div>
-        {/* Action items  */}
-        <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
-          <h2 className="text-xl font-semibold text-white">Action Items</h2>
 
-          {meeting.actionItems?.length ? (
-            <ul className="mt-4 space-y-3">
-              {meeting.actionItems.map((item: string, index: number) => (
-                <li
-                  key={index}
-                  className="flex items-start gap-3 text-zinc-300"
-                >
-                  <span className="mt-1 text-violet-400">✓</span>
+        <div className="mt-8 space-y-8">
+          <AudioCard audioUrl={meeting.audioUrl} />
 
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <>
-              <p className="mt-4 text-zinc-400">
-                No action items generated yet.
-              </p>
+          <TranscriptCard transcript={meeting.transcript} />
 
-              <Button
-                onClick={onGenerateActionItems}
-                disabled={isGeneratingActionItems}
-                className="mt-6"
-              >
-                {isGeneratingActionItems
-                  ? "Generating..."
-                  : "Generate Action Items"}
-              </Button>
-            </>
-          )}
+          <SummaryCard
+            summary={meeting.summary}
+            loading={isGeneratingSummary}
+            onGenerate={onGenerateSummary}
+          />
+
+          <ActionItemsCard
+            actionItems={meeting.actionItems || []}
+            loading={isGeneratingActionItems}
+            onGenerate={onGenerateActionItems}
+          />
         </div>
       </div>
     </main>
