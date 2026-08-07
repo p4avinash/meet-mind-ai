@@ -30,8 +30,13 @@ export const generateActionItems = async (meetingId: string) => {
   return data;
 };
 
-export const getMeetings = async () => {
-  const { data } = await api.get("/meetings");
+export const getMeetings = async (page: number, limit: number) => {
+  const { data } = await api.get("/meetings", {
+    params: {
+      page,
+      limit,
+    },
+  });
 
   return data;
 };

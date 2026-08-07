@@ -14,15 +14,21 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [stats, setStats] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState<any>(null);
+
+  const PAGE_SIZE = 5;
 
   const fetchMeetings = async () => {
     try {
       const [meetingsResponse, statsResponse] = await Promise.all([
-        getMeetings(),
+        getMeetings(currentPage, PAGE_SIZE),
         getMeetingStats(),
       ]);
 
       setMeetings(meetingsResponse.data);
+      setPagination(meetingsResponse.pagination);
+
       setStats(statsResponse.data);
     } catch (error) {
       console.error(error);
@@ -37,7 +43,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchMeetings();
-  }, []);
+  }, [currentPage]);
 
   return (
     <main className="min-h-screen bg-[#0B0F19]">
@@ -52,7 +58,12 @@ const Dashboard = () => {
 
         <SearchMeetings value={search} onChange={setSearch} />
 
-        <RecentMeetings meetings={filteredMeetings} loading={loading} />
+        <RecentMeetings
+          meetings={filteredMeetings}
+          loading={loading}
+          pagination={pagination}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </main>
   );
