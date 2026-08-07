@@ -5,6 +5,7 @@ import Register from "@/pages/Register";
 import Dashboard from "@/pages/Dashboard";
 import Recording from "@/pages/Recording";
 import MeetingDetails from "@/pages/MeetingDetails";
+import Settings from "@/pages/Settings";
 
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
@@ -25,6 +26,7 @@ const AppRouter = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/recording" element={<Recording />} />
           <Route path="/meetings/:id" element={<MeetingDetails />} />
+          <Route path="/settings" element={<Settings />} />
         </Route>
 
         {/* Default Route */}

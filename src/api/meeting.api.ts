@@ -49,3 +49,9 @@ export const deleteMeeting = async (meetingId: string) => {
 
   return data;
 };
+
+export const getMeetingStats = async () => {
+  const { data } = await api.get("/meetings/stats");
+
+  return data;
+};

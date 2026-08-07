@@ -7,18 +7,23 @@ import MeetingHealth from "@/components/dashboard/MeetingHealth";
 import RecentMeetings from "@/components/dashboard/RecentMeetings";
 import SearchMeetings from "@/components/dashboard/SearchMeetings";
 
-import { getMeetings } from "@/api/meeting.api";
+import { getMeetings, getMeetingStats } from "@/api/meeting.api";
 
 const Dashboard = () => {
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [stats, setStats] = useState(null);
 
   const fetchMeetings = async () => {
     try {
-      const response = await getMeetings();
+      const [meetingsResponse, statsResponse] = await Promise.all([
+        getMeetings(),
+        getMeetingStats(),
+      ]);
 
-      setMeetings(response.data);
+      setMeetings(meetingsResponse.data);
+      setStats(statsResponse.data);
     } catch (error) {
       console.error(error);
     } finally {
@@ -43,7 +48,7 @@ const Dashboard = () => {
 
         <QuickActions />
 
-        <MeetingHealth meetings={meetings} />
+        <MeetingHealth stats={stats} loading={loading} />
 
         <SearchMeetings value={search} onChange={setSearch} />
 

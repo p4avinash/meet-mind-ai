@@ -3,25 +3,24 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { uploadMeeting } from "@/api/meeting.api";
+import { getUserSettings, updateUserSettings } from "@/api/user.api";
 
 const useRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+
   const [audioURL, setAudioURL] = useState("");
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+
   const [seconds, setSeconds] = useState(0);
-  const [rememberEmail, setRememberEmail] = useState(true);
-  const [deliveryEmail, setDeliveryEmail] = useState(
-    localStorage.getItem("deliveryEmail") || "",
-  );
+  const [deliveryEmail, setDeliveryEmail] = useState("");
 
   const navigate = useNavigate();
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const secondsRef = useRef(0);
-  const deliveryEmailRef = useRef(deliveryEmail);
-  const rememberEmailRef = useRef(rememberEmail);
+  const deliveryEmailRef = useRef("");
 
   useEffect(() => {
     secondsRef.current = seconds;
@@ -32,8 +31,20 @@ const useRecorder = () => {
   }, [deliveryEmail]);
 
   useEffect(() => {
-    rememberEmailRef.current = rememberEmail;
-  }, [rememberEmail]);
+    const fetchSettings = async () => {
+      try {
+        const response = await getUserSettings();
+
+        setDeliveryEmail(
+          response.data.defaultDeliveryEmail || response.data.email,
+        );
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    fetchSettings();
+  }, []);
 
   useEffect(() => {
     let interval: number;
@@ -81,8 +92,10 @@ const useRecorder = () => {
 
       setSeconds(0);
       secondsRef.current = 0;
+
       setAudioURL("");
       setAudioBlob(null);
+
       setIsRecording(true);
     } catch (error) {
       console.error(error);
@@ -117,8 +130,10 @@ const useRecorder = () => {
         formData.append("duration", secondsRef.current.toString());
         formData.append("deliveryEmail", deliveryEmailRef.current);
 
-        if (rememberEmailRef.current) {
-          localStorage.setItem("deliveryEmail", deliveryEmailRef.current);
+        const settings = await getUserSettings();
+
+        if (settings.data.defaultDeliveryEmail !== deliveryEmailRef.current) {
+          await updateUserSettings(deliveryEmailRef.current);
         }
 
         const response = await uploadMeeting(formData);
@@ -129,7 +144,9 @@ const useRecorder = () => {
       } catch (error: any) {
         console.error(error);
 
-        toast.error(error?.response?.data?.message || "Failed to upload recording");
+        toast.error(
+          error?.response?.data?.message || "Failed to upload recording",
+        );
       } finally {
         setIsUploading(false);
       }
@@ -149,10 +166,7 @@ const useRecorder = () => {
     formatTime,
     deliveryEmail,
     setDeliveryEmail,
-    rememberEmail,
-    setRememberEmail,
   };
 };
 
 export default useRecorder;
-

@@ -12,6 +12,8 @@
   "dependencies": {
     "@ant-design/icons": "^6.3.2",
     "@hookform/resolvers": "^5.7.1",
+    "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.1.0",
     "@tailwindcss/vite": "^4.3.3",
     "antd": "^6.5.3",
     "axios": "^1.19.0",
@@ -19,6 +21,7 @@
     "framer-motion": "^12.43.0",
     "lucide-react": "^1.28.0",
     "react": "^19.2.8",
+    "react-countup": "^6.5.3",
     "react-dom": "^19.2.8",
     "react-dropzone": "^20.0.0",
     "react-hook-form": "^7.84.0",

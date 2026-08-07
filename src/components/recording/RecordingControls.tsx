@@ -1,9 +1,12 @@
 import { HiMiniMicrophone } from "react-icons/hi2";
+import { useNavigate } from "react-router-dom";
 
 import Button from "@/components/common/button/Button";
 import useRecorder from "@/hooks/useRecorder";
 
 const RecordingControls = () => {
+  const navigate = useNavigate();
+
   const {
     isRecording,
     seconds,
@@ -14,8 +17,6 @@ const RecordingControls = () => {
     formatTime,
     deliveryEmail,
     setDeliveryEmail,
-    rememberEmail,
-    setRememberEmail,
   } = useRecorder();
 
   return (
@@ -74,25 +75,29 @@ const RecordingControls = () => {
 
         <div className="mt-8 w-full">
           <label className="mb-2 block text-sm font-medium text-zinc-300">
-            Where should we send your meeting summary?
+            Delivery Email
           </label>
 
           <input
             type="email"
             value={deliveryEmail}
             onChange={(e) => setDeliveryEmail(e.target.value)}
-            placeholder="you@example.com"
-            className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-white outline-none focus:border-violet-500"
+            placeholder="Where should we send this meeting summary?"
+            className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-white outline-none transition focus:border-violet-500"
           />
 
-          <label className="mt-4 flex items-center gap-2 text-sm text-zinc-400">
-            <input
-              type="checkbox"
-              checked={rememberEmail}
-              onChange={(e) => setRememberEmail(e.target.checked)}
-            />
-            Remember this email
-          </label>
+          <p className="mt-2 text-sm text-zinc-500">
+            This email is only for this meeting. You can change your default
+            delivery email from{" "}
+            <button
+              type="button"
+              onClick={() => navigate("/settings")}
+              className="font-medium text-violet-400 transition hover:text-violet-300 hover:underline"
+            >
+              Settings
+            </button>
+            .
+          </p>
         </div>
 
         {audioURL && (
