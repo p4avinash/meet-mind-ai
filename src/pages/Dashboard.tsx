@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import useDebounce from "@/hooks/useDebounce";
+
 import Header from "@/components/dashboard/Header";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import QuickActions from "@/components/dashboard/QuickActions";
@@ -9,27 +11,32 @@ import SearchMeetings from "@/components/dashboard/SearchMeetings";
 
 import { getMeetings, getMeetingStats } from "@/api/meeting.api";
 
+const PAGE_SIZE = 5;
+
 const Dashboard = () => {
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search);
+
   const [stats, setStats] = useState(null);
+
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<any>(null);
 
-  const PAGE_SIZE = 5;
-
   const fetchMeetings = async () => {
     try {
-      const [meetingsResponse, statsResponse] = await Promise.all([
-        getMeetings(currentPage, PAGE_SIZE),
-        getMeetingStats(),
-      ]);
+      setLoading(true);
 
-      setMeetings(meetingsResponse.data);
-      setPagination(meetingsResponse.pagination);
+      const response = await getMeetings(
+        currentPage,
+        PAGE_SIZE,
+        debouncedSearch,
+      );
 
-      setStats(statsResponse.data);
+      setMeetings(response.data);
+      setPagination(response.pagination);
     } catch (error) {
       console.error(error);
     } finally {
@@ -37,13 +44,27 @@ const Dashboard = () => {
     }
   };
 
-  const filteredMeetings = meetings.filter((meeting: any) =>
-    meeting.title.toLowerCase().includes(search.toLowerCase()),
-  );
+  const fetchStats = async () => {
+    try {
+      const response = await getMeetingStats();
+
+      setStats(response.data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   useEffect(() => {
     fetchMeetings();
-  }, [currentPage]);
+  }, [currentPage, debouncedSearch]);
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch]);
 
   return (
     <main className="min-h-screen bg-[#0B0F19]">
@@ -59,7 +80,7 @@ const Dashboard = () => {
         <SearchMeetings value={search} onChange={setSearch} />
 
         <RecentMeetings
-          meetings={filteredMeetings}
+          meetings={meetings}
           loading={loading}
           pagination={pagination}
           onPageChange={setCurrentPage}

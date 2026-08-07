@@ -30,11 +30,12 @@ export const generateActionItems = async (meetingId: string) => {
   return data;
 };
 
-export const getMeetings = async (page: number, limit: number) => {
+export const getMeetings = async (page = 1, limit = 5, search = "") => {
   const { data } = await api.get("/meetings", {
     params: {
       page,
       limit,
+      search,
     },
   });
 
