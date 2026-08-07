@@ -4,6 +4,7 @@ import {
   HiChartBar,
   HiCheckCircle,
   HiClock,
+  HiExclamationCircle,
   HiExclamationTriangle,
   HiMicrophone,
 } from "react-icons/hi2";
@@ -21,6 +22,52 @@ interface Props {
   loading: boolean;
 }
 
+const getHealthStatus = (stats: MeetingStats | null) => {
+  if (!stats) {
+    return {
+      label: "Healthy",
+      color: "bg-green-500/10 text-green-400 border-green-500/20",
+      Icon: HiArrowTrendingUp,
+    };
+  }
+
+  const completed = stats.completedMeetings || 0;
+  const failed = stats.failedMeetings || 0;
+  const totalProcessed = completed + failed;
+
+  if (totalProcessed === 0 || failed === 0) {
+    return {
+      label: "Healthy",
+      color: "bg-green-500/10 text-green-400 border-green-500/20",
+      Icon: HiArrowTrendingUp,
+    };
+  }
+
+  const successRate = (completed / totalProcessed) * 100;
+
+  if (successRate >= 80) {
+    return {
+      label: "Healthy",
+      color: "bg-green-500/10 text-green-400 border-green-500/20",
+      Icon: HiArrowTrendingUp,
+    };
+  }
+
+  if (successRate >= 50) {
+    return {
+      label: "Attention Needed",
+      color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+      Icon: HiExclamationCircle,
+    };
+  }
+
+  return {
+    label: "Degraded",
+    color: "bg-red-500/10 text-red-400 border-red-500/20",
+    Icon: HiExclamationTriangle,
+  };
+};
+
 const cards = (stats: MeetingStats) => [
   {
     title: "Total Meetings",
@@ -28,7 +75,6 @@ const cards = (stats: MeetingStats) => [
     icon: HiChartBar,
     color: "text-violet-400",
     bg: "bg-violet-500/10",
-    trend: "+12%",
   },
   {
     title: "Completed",
@@ -36,7 +82,6 @@ const cards = (stats: MeetingStats) => [
     icon: HiCheckCircle,
     color: "text-green-400",
     bg: "bg-green-500/10",
-    trend: "+8%",
   },
   {
     title: "Processing",
@@ -44,7 +89,6 @@ const cards = (stats: MeetingStats) => [
     icon: HiClock,
     color: "text-yellow-400",
     bg: "bg-yellow-500/10",
-    trend: "Live",
   },
   {
     title: "Failed",
@@ -52,7 +96,6 @@ const cards = (stats: MeetingStats) => [
     icon: HiExclamationTriangle,
     color: "text-red-400",
     bg: "bg-red-500/10",
-    trend: "-2%",
   },
   {
     title: "Recording Time",
@@ -61,19 +104,20 @@ const cards = (stats: MeetingStats) => [
     icon: HiMicrophone,
     color: "text-cyan-400",
     bg: "bg-cyan-500/10",
-    trend: "+25%",
   },
 ];
 
 const MeetingHealth = ({ stats, loading }: Props) => {
+  const { label, color, Icon } = getHealthStatus(stats);
+
   return (
     <section className="rounded-3xl border border-zinc-800 bg-zinc-900 p-8">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-white">Meeting Health</h2>
 
-        <div className="flex items-center gap-2 rounded-full bg-green-500/10 px-3 py-1 text-xs text-green-400">
-          <HiArrowTrendingUp />
-          Healthy
+        <div className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${color}`}>
+          <Icon />
+          <span>{label}</span>
         </div>
       </div>
 
@@ -89,7 +133,7 @@ const MeetingHealth = ({ stats, loading }: Props) => {
       ) : (
         <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-5">
           {cards(stats).map((card) => {
-            const Icon = card.icon;
+            const CardIcon = card.icon;
 
             return (
               <div
@@ -111,12 +155,8 @@ const MeetingHealth = ({ stats, loading }: Props) => {
               >
                 <div className="flex items-start justify-between">
                   <div className={`rounded-xl p-3 ${card.bg}`}>
-                    <Icon className={`text-2xl ${card.color}`} />
+                    <CardIcon className={`text-2xl ${card.color}`} />
                   </div>
-
-                  <span className="rounded-full bg-zinc-800 px-2 py-1 text-xs text-zinc-400">
-                    {card.trend}
-                  </span>
                 </div>
 
                 <p className="mt-6 text-sm text-zinc-400">{card.title}</p>

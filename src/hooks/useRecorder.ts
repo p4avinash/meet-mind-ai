@@ -1,144 +1,270 @@
 import toast from "react-hot-toast";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { uploadMeeting } from "@/api/meeting.api";
 import { getUserSettings, updateUserSettings } from "@/api/user.api";
 
+// ------------------------------------------------------------
+// MODULE-LEVEL RECORDER SINGLETON STORE
+// Persists recording state across React route navigations without external libraries.
+// ------------------------------------------------------------
+interface RecorderState {
+  isRecording: boolean;
+  isUploading: boolean;
+  seconds: number;
+  startTimestamp: number;
+  audioURL: string;
+  audioBlob: Blob | null;
+  deliveryEmail: string;
+}
+
+let storeState: RecorderState = {
+  isRecording: false,
+  isUploading: false,
+  seconds: 0,
+  startTimestamp: 0,
+  audioURL: "",
+  audioBlob: null,
+  deliveryEmail: "",
+};
+
+let activeMediaRecorder: MediaRecorder | null = null;
+let activeAudioChunks: Blob[] = [];
+let activeTimerInterval: number | null = null;
+
+// Active stream & AudioContext references for resource cleanup
+let activeDisplayStream: MediaStream | null = null;
+let activeMicStream: MediaStream | null = null;
+let activeAudioContext: AudioContext | null = null;
+
+const storeListeners = new Set<() => void>();
+
+const subscribeStore = (listener: () => void) => {
+  storeListeners.add(listener);
+  return () => storeListeners.delete(listener);
+};
+
+const getStoreSnapshot = () => storeState;
+
+const updateStoreState = (partial: Partial<RecorderState>) => {
+  storeState = { ...storeState, ...partial };
+  storeListeners.forEach((listener) => listener());
+};
+
+const setDeliveryEmail = (email: string) => {
+  updateStoreState({ deliveryEmail: email });
+};
+
+const formatTime = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+};
+
 const useRecorder = () => {
-  const [isRecording, setIsRecording] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-
-  const [audioURL, setAudioURL] = useState("");
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-
-  const [seconds, setSeconds] = useState(0);
-  const [deliveryEmail, setDeliveryEmail] = useState("");
-
+  const currentState = useSyncExternalStore(subscribeStore, getStoreSnapshot);
   const navigate = useNavigate();
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const secondsRef = useRef(0);
-  const deliveryEmailRef = useRef("");
-
   useEffect(() => {
-    secondsRef.current = seconds;
-  }, [seconds]);
+    if (!storeState.deliveryEmail) {
+      const fetchSettings = async () => {
+        try {
+          const response = await getUserSettings();
+          const defaultEmail =
+            response.data.defaultDeliveryEmail || response.data.email;
 
-  useEffect(() => {
-    deliveryEmailRef.current = deliveryEmail;
-  }, [deliveryEmail]);
+          if (defaultEmail && !storeState.deliveryEmail) {
+            updateStoreState({ deliveryEmail: defaultEmail });
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      };
 
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const response = await getUserSettings();
-
-        setDeliveryEmail(
-          response.data.defaultDeliveryEmail || response.data.email,
-        );
-      } catch (error) {
-        console.error(error);
-      }
-    };
-
-    fetchSettings();
+      fetchSettings();
+    }
   }, []);
 
-  useEffect(() => {
-    let interval: number;
-
-    if (isRecording) {
-      interval = window.setInterval(() => {
-        setSeconds((prev) => {
-          const next = prev + 1;
-          secondsRef.current = next;
-          return next;
-        });
-      }, 1000);
+  const startRecording = async () => {
+    // Prevent starting another recording session while one is already active
+    if (
+      storeState.isRecording ||
+      (activeMediaRecorder && activeMediaRecorder.state !== "inactive")
+    ) {
+      return;
     }
 
-    return () => clearInterval(interval);
-  }, [isRecording]);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-
-    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-  };
-
-  const startRecording = async () => {
-    if (isRecording) return;
-
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      // 1. Acquire Display Stream (Chrome Tab / System Audio)
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
         audio: true,
       });
 
-      const recorder = new MediaRecorder(stream);
+      if (displayStream.getAudioTracks().length === 0) {
+        toast.error(
+          "No tab audio detected. Please make sure to enable 'Share tab audio' when sharing.",
+        );
+        displayStream.getTracks().forEach((track) => track.stop());
+        return;
+      }
 
-      mediaRecorderRef.current = recorder;
-      audioChunksRef.current = [];
+      activeDisplayStream = displayStream;
+
+      // 2. Acquire Microphone Stream with audio enhancements
+      let micStream: MediaStream | null = null;
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+        activeMicStream = micStream;
+      } catch (micError: any) {
+        console.warn("Microphone access denied or unavailable:", micError);
+        toast(
+          "Microphone permission denied. Recording will continue with tab audio only.",
+          { icon: "ℹ️" },
+        );
+      }
+
+      // 3. Merge Audio Streams via Web Audio API if Microphone is available
+      let streamToRecord = displayStream;
+
+      if (micStream && micStream.getAudioTracks().length > 0) {
+        try {
+          const AudioCtxClass =
+            window.AudioContext || (window as any).webkitAudioContext;
+          const audioContext = new AudioCtxClass();
+          activeAudioContext = audioContext;
+
+          const destination = audioContext.createMediaStreamDestination();
+
+          // Connect Tab Audio to Destination
+          const tabSource = audioContext.createMediaStreamSource(displayStream);
+          tabSource.connect(destination);
+
+          // Connect Microphone Audio to Destination
+          const micSource = audioContext.createMediaStreamSource(micStream);
+          micSource.connect(destination);
+
+          // Combine Display Video tracks with the Merged Audio track
+          const combinedTracks = [
+            ...displayStream.getVideoTracks(),
+            ...destination.stream.getAudioTracks(),
+          ];
+
+          streamToRecord = new MediaStream(combinedTracks);
+        } catch (audioCtxErr) {
+          console.error("Error merging audio streams:", audioCtxErr);
+          streamToRecord = displayStream;
+        }
+      }
+
+      // Automatically handle user clicking Chrome's native "Stop sharing" button
+      displayStream.getTracks().forEach((track) => {
+        track.onended = () => {
+          if (
+            activeMediaRecorder &&
+            activeMediaRecorder.state !== "inactive"
+          ) {
+            stopRecording();
+          }
+        };
+      });
+
+      const recorder = new MediaRecorder(streamToRecord);
+      activeMediaRecorder = recorder;
+      activeAudioChunks = [];
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
+          activeAudioChunks.push(event.data);
         }
       };
 
       recorder.start();
 
-      setSeconds(0);
-      secondsRef.current = 0;
+      const now = Date.now();
 
-      setAudioURL("");
-      setAudioBlob(null);
+      if (activeTimerInterval) {
+        window.clearInterval(activeTimerInterval);
+      }
 
-      setIsRecording(true);
-    } catch (error) {
+      activeTimerInterval = window.setInterval(() => {
+        if (storeState.isRecording) {
+          const elapsed = Math.floor(
+            (Date.now() - storeState.startTimestamp) / 1000,
+          );
+          updateStoreState({ seconds: elapsed });
+        }
+      }, 1000);
+
+      updateStoreState({
+        isRecording: true,
+        startTimestamp: now,
+        seconds: 0,
+        audioURL: "",
+        audioBlob: null,
+      });
+    } catch (error: any) {
       console.error(error);
-      toast.error("Microphone access denied or unavailable.");
+      if (error?.name !== "NotAllowedError") {
+        toast.error("Tab audio recording permission denied or unavailable.");
+      }
     }
   };
 
   const stopRecording = () => {
-    const recorder = mediaRecorderRef.current;
+    const recorder = activeMediaRecorder;
 
     if (!recorder) return;
+
+    if (activeTimerInterval) {
+      window.clearInterval(activeTimerInterval);
+      activeTimerInterval = null;
+    }
 
     recorder.stop();
 
     recorder.onstop = async () => {
-      const blob = new Blob(audioChunksRef.current, {
+      const blob = new Blob(activeAudioChunks, {
         type: "audio/webm",
       });
 
       const url = URL.createObjectURL(blob);
+      const finalDuration = storeState.seconds;
+      const currentEmail = storeState.deliveryEmail;
 
-      setAudioBlob(blob);
-      setAudioURL(url);
-      setIsRecording(false);
+      updateStoreState({
+        audioBlob: blob,
+        audioURL: url,
+        isRecording: false,
+        isUploading: true,
+      });
 
       try {
-        setIsUploading(true);
-
         const formData = new FormData();
 
         formData.append("audio", blob, "meeting.webm");
-        formData.append("duration", secondsRef.current.toString());
-        formData.append("deliveryEmail", deliveryEmailRef.current);
+        formData.append("duration", finalDuration.toString());
+        formData.append("deliveryEmail", currentEmail);
 
         const settings = await getUserSettings();
 
-        if (settings.data.defaultDeliveryEmail !== deliveryEmailRef.current) {
-          await updateUserSettings(deliveryEmailRef.current);
+        if (settings.data.defaultDeliveryEmail !== currentEmail) {
+          await updateUserSettings(currentEmail);
         }
 
         const response = await uploadMeeting(formData);
 
-        toast.success(response.message);
+        toast.success(
+          "Meeting uploaded successfully. Email delivery is running in Demo Mode.",
+        );
 
         navigate(`/meetings/${response.data._id}`);
       } catch (error: any) {
@@ -148,23 +274,38 @@ const useRecorder = () => {
           error?.response?.data?.message || "Failed to upload recording",
         );
       } finally {
-        setIsUploading(false);
+        updateStoreState({ isUploading: false });
+        activeMediaRecorder = null;
       }
     };
 
-    recorder.stream.getTracks().forEach((track) => track.stop());
+    // Clean up streams & AudioContext
+    if (activeDisplayStream) {
+      activeDisplayStream.getTracks().forEach((track) => track.stop());
+      activeDisplayStream = null;
+    }
+
+    if (activeMicStream) {
+      activeMicStream.getTracks().forEach((track) => track.stop());
+      activeMicStream = null;
+    }
+
+    if (activeAudioContext) {
+      activeAudioContext.close().catch(console.error);
+      activeAudioContext = null;
+    }
   };
 
   return {
-    isRecording,
-    isUploading,
-    seconds,
-    audioURL,
-    audioBlob,
+    isRecording: currentState.isRecording,
+    isUploading: currentState.isUploading,
+    seconds: currentState.seconds,
+    audioURL: currentState.audioURL,
+    audioBlob: currentState.audioBlob,
     startRecording,
     stopRecording,
     formatTime,
-    deliveryEmail,
+    deliveryEmail: currentState.deliveryEmail,
     setDeliveryEmail,
   };
 };

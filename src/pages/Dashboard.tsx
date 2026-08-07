@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import useDebounce from "@/hooks/useDebounce";
 
@@ -8,12 +9,17 @@ import QuickActions from "@/components/dashboard/QuickActions";
 import MeetingHealth from "@/components/dashboard/MeetingHealth";
 import RecentMeetings from "@/components/dashboard/RecentMeetings";
 import SearchMeetings from "@/components/dashboard/SearchMeetings";
+import DemoModeBanner from "@/components/dashboard/DemoModeBanner";
 
 import { getMeetings, getMeetingStats } from "@/api/meeting.api";
 
 const PAGE_SIZE = 5;
 
 const Dashboard = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pageFromUrl = parseInt(searchParams.get("page") || "1", 10);
+  const currentPage = isNaN(pageFromUrl) || pageFromUrl < 1 ? 1 : pageFromUrl;
+
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -21,9 +27,19 @@ const Dashboard = () => {
   const debouncedSearch = useDebounce(search);
 
   const [stats, setStats] = useState(null);
-
-  const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<any>(null);
+
+  const setCurrentPage = (page: number) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (page <= 1) {
+        next.delete("page");
+      } else {
+        next.set("page", page.toString());
+      }
+      return next;
+    });
+  };
 
   const fetchMeetings = async () => {
     try {
@@ -34,6 +50,16 @@ const Dashboard = () => {
         PAGE_SIZE,
         debouncedSearch,
       );
+
+      // Handle out-of-bounds page after deletion (e.g. deleting the last item on page 5)
+      if (
+        response.pagination &&
+        response.pagination.totalPages > 0 &&
+        currentPage > response.pagination.totalPages
+      ) {
+        setCurrentPage(response.pagination.totalPages);
+        return;
+      }
 
       setMeetings(response.data);
       setPagination(response.pagination);
@@ -47,7 +73,6 @@ const Dashboard = () => {
   const fetchStats = async () => {
     try {
       const response = await getMeetingStats();
-
       setStats(response.data);
     } catch (error) {
       console.error(error);
@@ -63,7 +88,9 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    setCurrentPage(1);
+    if (debouncedSearch) {
+      setCurrentPage(1);
+    }
   }, [debouncedSearch]);
 
   return (
@@ -72,6 +99,8 @@ const Dashboard = () => {
         <Header />
 
         <WelcomeCard />
+
+        <DemoModeBanner />
 
         <QuickActions />
 

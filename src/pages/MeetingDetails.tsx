@@ -7,6 +7,8 @@ import TranscriptCard from "@/components/meeting/TranscriptCard";
 import SummaryCard from "@/components/meeting/SummaryCard";
 import ActionItemsCard from "@/components/meeting/ActionItemsCard";
 import ProcessingStatus from "@/components/meeting/ProcessingStatus";
+import BackButton from "@/components/common/BackButton";
+import DeleteConfirmationModal from "@/components/common/DeleteConfirmationModal";
 
 import { getMeeting } from "@/api/meeting.api";
 
@@ -20,6 +22,7 @@ const MeetingDetails = () => {
   const [meeting, setMeeting] = useState<any>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [title, setTitle] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const { isDeleting, handleRenameMeeting, handleDeleteMeeting } = useMeeting();
 
@@ -101,19 +104,18 @@ const MeetingDetails = () => {
     }
   };
 
-  const onDeleteMeeting = async () => {
+  const onConfirmDelete = async () => {
     if (!meeting?._id) return;
-
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this meeting?",
-    );
-
-    if (!confirmed) return;
 
     const success = await handleDeleteMeeting(meeting._id);
 
     if (success) {
-      navigate("/dashboard");
+      setShowDeleteModal(false);
+      if (window.history.length > 2) {
+        navigate(-1);
+      } else {
+        navigate("/dashboard");
+      }
     }
   };
 
@@ -126,8 +128,14 @@ const MeetingDetails = () => {
   }
 
   return (
-    <main className="min-h-screen bg-[#0B0F19] p-8">
+    <main className="min-h-screen bg-[#0B0F19] p-4 sm:p-8">
       <div className="mx-auto max-w-5xl">
+        {/* Navigation Bar */}
+        <div className="mb-6 flex items-center justify-between">
+          <BackButton />
+        </div>
+
+        {/* Title Header Bar */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {isEditingTitle ? (
@@ -156,6 +164,7 @@ const MeetingDetails = () => {
 
                 <button
                   onClick={() => setIsEditingTitle(true)}
+                  aria-label="Edit title"
                   className="text-zinc-400 transition hover:text-violet-400"
                 >
                   <HiPencil size={22} />
@@ -165,14 +174,16 @@ const MeetingDetails = () => {
           </div>
 
           <button
-            onClick={onDeleteMeeting}
+            onClick={() => setShowDeleteModal(true)}
             disabled={isDeleting}
+            aria-label="Delete meeting"
             className="rounded-xl border border-red-500/30 p-3 text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
           >
             <HiTrash size={20} />
           </button>
         </div>
 
+        {/* Meeting Cards */}
         <div className="mt-8 space-y-8">
           <ProcessingStatus status={meeting.status} />
 
@@ -193,6 +204,15 @@ const MeetingDetails = () => {
           />
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={showDeleteModal}
+        itemTitle={meeting.title}
+        isDeleting={isDeleting}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={onConfirmDelete}
+      />
     </main>
   );
 };
