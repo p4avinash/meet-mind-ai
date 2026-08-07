@@ -1,18 +1,25 @@
-import Button from "@/components/common/button/Button";
 import { HiClipboardDocument } from "react-icons/hi2";
+
+import Button from "@/components/common/button/Button";
 import copyToClipboard from "@/utils/copyToClipboard";
 
 interface ActionItemsCardProps {
   actionItems: string[];
-  loading: boolean;
+  status: string;
   onGenerate: () => void;
 }
 
 const ActionItemsCard = ({
   actionItems,
-  loading,
+  status,
   onGenerate,
 }: ActionItemsCardProps) => {
+  const isProcessing =
+    status === "transcribing" ||
+    status === "summarizing" ||
+    status === "generating_action_items" ||
+    status === "sending_email";
+
   return (
     <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
       <div className="flex items-center justify-between">
@@ -40,12 +47,16 @@ const ActionItemsCard = ({
             </li>
           ))}
         </ul>
+      ) : isProcessing ? (
+        <p className="mt-4 text-zinc-400">
+          Action items are being generated...
+        </p>
       ) : (
         <>
           <p className="mt-4 text-zinc-400">No action items generated yet.</p>
 
-          <Button onClick={onGenerate} disabled={loading} className="mt-6">
-            {loading ? "Generating..." : "Generate Action Items"}
+          <Button onClick={onGenerate} className="mt-6">
+            Generate Action Items
           </Button>
         </>
       )}

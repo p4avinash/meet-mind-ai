@@ -5,11 +5,17 @@ import copyToClipboard from "@/utils/copyToClipboard";
 
 interface SummaryCardProps {
   summary: string;
-  loading: boolean;
+  status: string;
   onGenerate: () => void;
 }
 
-const SummaryCard = ({ summary, loading, onGenerate }: SummaryCardProps) => {
+const SummaryCard = ({ summary, status, onGenerate }: SummaryCardProps) => {
+  const isProcessing =
+    status === "transcribing" ||
+    status === "summarizing" ||
+    status === "generating_action_items" ||
+    status === "sending_email";
+
   return (
     <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
       <div className="flex items-center justify-between">
@@ -29,14 +35,16 @@ const SummaryCard = ({ summary, loading, onGenerate }: SummaryCardProps) => {
         <p className="mt-4 whitespace-pre-wrap leading-7 text-zinc-300">
           {summary}
         </p>
+      ) : isProcessing ? (
+        <p className="mt-4 text-zinc-400">Summary is being generated...</p>
       ) : (
         <>
           <p className="mt-4 text-zinc-400">
             Summary has not been generated yet.
           </p>
 
-          <Button onClick={onGenerate} disabled={loading} className="mt-6">
-            {loading ? "Generating Summary..." : "Generate Summary"}
+          <Button onClick={onGenerate} className="mt-6">
+            Generate Summary
           </Button>
         </>
       )}

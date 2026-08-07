@@ -10,18 +10,41 @@ const useRecorder = () => {
   const [audioURL, setAudioURL] = useState("");
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [seconds, setSeconds] = useState(0);
+  const [rememberEmail, setRememberEmail] = useState(true);
+  const [deliveryEmail, setDeliveryEmail] = useState(
+    localStorage.getItem("deliveryEmail") || "",
+  );
 
   const navigate = useNavigate();
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const secondsRef = useRef(0);
+  const deliveryEmailRef = useRef(deliveryEmail);
+  const rememberEmailRef = useRef(rememberEmail);
+
+  useEffect(() => {
+    secondsRef.current = seconds;
+  }, [seconds]);
+
+  useEffect(() => {
+    deliveryEmailRef.current = deliveryEmail;
+  }, [deliveryEmail]);
+
+  useEffect(() => {
+    rememberEmailRef.current = rememberEmail;
+  }, [rememberEmail]);
 
   useEffect(() => {
     let interval: number;
 
     if (isRecording) {
       interval = window.setInterval(() => {
-        setSeconds((prev) => prev + 1);
+        setSeconds((prev) => {
+          const next = prev + 1;
+          secondsRef.current = next;
+          return next;
+        });
       }, 1000);
     }
 
@@ -57,11 +80,13 @@ const useRecorder = () => {
       recorder.start();
 
       setSeconds(0);
+      secondsRef.current = 0;
       setAudioURL("");
       setAudioBlob(null);
       setIsRecording(true);
     } catch (error) {
       console.error(error);
+      toast.error("Microphone access denied or unavailable.");
     }
   };
 
@@ -89,17 +114,22 @@ const useRecorder = () => {
         const formData = new FormData();
 
         formData.append("audio", blob, "meeting.webm");
-        formData.append("duration", seconds.toString());
+        formData.append("duration", secondsRef.current.toString());
+        formData.append("deliveryEmail", deliveryEmailRef.current);
+
+        if (rememberEmailRef.current) {
+          localStorage.setItem("deliveryEmail", deliveryEmailRef.current);
+        }
 
         const response = await uploadMeeting(formData);
 
         toast.success(response.message);
 
         navigate(`/meetings/${response.data._id}`);
-      } catch (error) {
+      } catch (error: any) {
         console.error(error);
 
-        toast.error("Failed to upload recording");
+        toast.error(error?.response?.data?.message || "Failed to upload recording");
       } finally {
         setIsUploading(false);
       }
@@ -117,7 +147,12 @@ const useRecorder = () => {
     startRecording,
     stopRecording,
     formatTime,
+    deliveryEmail,
+    setDeliveryEmail,
+    rememberEmail,
+    setRememberEmail,
   };
 };
 
 export default useRecorder;
+

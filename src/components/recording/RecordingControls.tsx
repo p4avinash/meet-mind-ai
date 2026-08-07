@@ -12,6 +12,10 @@ const RecordingControls = () => {
     startRecording,
     stopRecording,
     formatTime,
+    deliveryEmail,
+    setDeliveryEmail,
+    rememberEmail,
+    setRememberEmail,
   } = useRecorder();
 
   return (
@@ -56,7 +60,9 @@ const RecordingControls = () => {
 
         <Button
           onClick={isRecording ? stopRecording : startRecording}
-          disabled={isUploading}
+          disabled={
+            isUploading || !deliveryEmail.trim() || !deliveryEmail.includes("@")
+          }
           className="mt-10 px-10"
         >
           {isRecording
@@ -65,6 +71,29 @@ const RecordingControls = () => {
               ? "Uploading..."
               : "Start Recording"}
         </Button>
+
+        <div className="mt-8 w-full">
+          <label className="mb-2 block text-sm font-medium text-zinc-300">
+            Where should we send your meeting summary?
+          </label>
+
+          <input
+            type="email"
+            value={deliveryEmail}
+            onChange={(e) => setDeliveryEmail(e.target.value)}
+            placeholder="you@example.com"
+            className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-white outline-none focus:border-violet-500"
+          />
+
+          <label className="mt-4 flex items-center gap-2 text-sm text-zinc-400">
+            <input
+              type="checkbox"
+              checked={rememberEmail}
+              onChange={(e) => setRememberEmail(e.target.checked)}
+            />
+            Remember this email
+          </label>
+        </div>
 
         {audioURL && (
           <div className="mt-8 w-full max-w-lg">

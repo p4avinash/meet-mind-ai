@@ -1,11 +1,6 @@
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
 import { HiPencil, HiTrash } from "react-icons/hi2";
-import { useNavigate } from "react-router-dom";
-
-import Button from "@/components/common/button/Button";
-
-import useMeeting from "@/hooks/useMeeting";
+import { useNavigate, useParams } from "react-router-dom";
 
 import AudioCard from "@/components/meeting/AudioCard";
 import TranscriptCard from "@/components/meeting/TranscriptCard";
@@ -15,55 +10,57 @@ import ProcessingStatus from "@/components/meeting/ProcessingStatus";
 
 import { getMeeting } from "@/api/meeting.api";
 
+import useMeeting from "@/hooks/useMeeting";
 import useTranscript from "@/hooks/useTranscript";
 
 const MeetingDetails = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
 
   const [meeting, setMeeting] = useState<any>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [title, setTitle] = useState("");
 
-  const navigate = useNavigate();
+  const { isDeleting, handleRenameMeeting, handleDeleteMeeting } = useMeeting();
 
-  const { isRenaming, isDeleting, handleRenameMeeting, handleDeleteMeeting } =
-    useMeeting();
+  const { handleGenerateSummary, handleGenerateActionItems } =
+    useTranscript();
 
-  const {
-    handleGenerateSummary,
-    isGeneratingSummary,
-    handleGenerateActionItems,
-    isGeneratingActionItems,
-  } = useTranscript();
-
-  const fetchMeeting = async () => {
+  const fetchMeeting = useCallback(async () => {
     try {
       if (!id) return;
 
       const response = await getMeeting(id);
 
-      setMeeting(response?.data);
-      setTitle(response?.data?.title);
+      setMeeting(response.data);
     } catch (error) {
       console.error(error);
     }
-  };
-
-  const shouldPoll = meeting && meeting.status !== "completed";
-
-  useEffect(() => {
-    fetchMeeting();
   }, [id]);
 
   useEffect(() => {
-    if (!shouldPoll) return;
+    fetchMeeting();
+  }, [fetchMeeting]);
+
+  useEffect(() => {
+    if (meeting) {
+      setTitle(meeting.title);
+    }
+  }, [meeting]);
+
+  useEffect(() => {
+    if (!meeting) return;
+
+    if (meeting.status === "completed") return;
+
+    if (meeting.status === "failed") return;
 
     const interval = setInterval(() => {
       fetchMeeting();
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [shouldPoll]);
+  }, [meeting?.status, fetchMeeting]);
 
   const onGenerateSummary = async () => {
     if (!meeting?._id) return;
@@ -178,16 +175,20 @@ const MeetingDetails = () => {
 
         <div className="mt-8 space-y-8">
           <ProcessingStatus status={meeting.status} />
+
           <AudioCard audioUrl={meeting.audioUrl} />
+
           <TranscriptCard transcript={meeting.transcript} />
+
           <SummaryCard
             summary={meeting.summary}
-            loading={isGeneratingSummary}
+            status={meeting.status}
             onGenerate={onGenerateSummary}
           />
+
           <ActionItemsCard
             actionItems={meeting.actionItems || []}
-            loading={isGeneratingActionItems}
+            status={meeting.status}
             onGenerate={onGenerateActionItems}
           />
         </div>

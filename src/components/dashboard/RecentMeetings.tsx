@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import MeetingCard from "@/components/meeting/MeetingCard";
 
 interface Meeting {
