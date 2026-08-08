@@ -20,7 +20,7 @@ const WaveAnimation = ({ isRecording }: WaveAnimationProps) => {
   ];
 
   return (
-    <div className="flex h-12 items-center justify-center gap-1.5 px-4 py-2">
+    <div className="flex h-8 items-center justify-center gap-1.5 px-3 py-1">
       {delays.map((delay, index) => (
         <span
           key={index}

@@ -68,14 +68,14 @@ const useRecorder = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!storeState.deliveryEmail) {
+    if (!storeState.isRecording) {
       const fetchSettings = async () => {
         try {
           const response = await getUserSettings();
           const defaultEmail =
             response.data.defaultDeliveryEmail || response.data.email;
 
-          if (defaultEmail && !storeState.deliveryEmail) {
+          if (defaultEmail) {
             updateStoreState({ deliveryEmail: defaultEmail });
           }
         } catch (error) {
